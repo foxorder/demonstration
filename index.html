@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#F4EFE6">
-<title>Prototype espace client Fox Order</title>
+<title>Fox Order</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icones/icone-192.png">
+<link rel="apple-touch-icon" href="icones/icone-iphone-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fox Order">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 /* Polices embarquées : Figtree, © 2022 The Figtree Project Authors ; Bricolage Grotesque, © 2022 The Bricolage Grotesque Project Authors.
    Toutes deux sous licence SIL Open Font, version 1.1. */
@@ -1061,6 +1068,36 @@ main{padding-bottom:calc(124px + env(safe-area-inset-bottom))}
   .btn:active,.chip:active,.geste:active,.barre-bas a:active,.barre-bas button:active,.onglets button:active{transform:none}
 }
 
+/* Investir : les deux services de Fox Order en tête de la rubrique. La première tuile agit ; la seconde attend son ouverture, en retrait. */
+.services{display:grid;gap:10px;margin:0 0 12px}
+.service{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px 14px;padding:16px;border:1.5px solid transparent;border-radius:22px;background:var(--surface)}
+.service h2{margin:0;font-size:19px;line-height:1.25;letter-spacing:-.01em;text-wrap:balance}
+.service h2 .i-btn{vertical-align:-3px;margin-left:2px}
+.service > .rang-actions,.service > .pastille{grid-column:1/-1;justify-self:start}
+.service .btn.contour{background:var(--pierre-1)}
+.service .btn.contour:hover{background:var(--pierre-3)}
+.service.bientot{background:none;border-color:var(--pierre-3);border-style:dashed}
+.service.bientot h2{color:var(--encre-2)}
+.service.bientot .puce{background:var(--pierre-2)}
+@media (min-width:760px){.services{grid-template-columns:1fr 1fr;gap:12px}.service{padding:18px 20px;align-content:start}}
+/* Rapport d'adéquation : l'avis de Fox Order se lit en premier, avant ses raisons */
+.avis{display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:18px;margin-bottom:12px}
+.avis svg{flex:none}
+.avis b{display:block;font-family:var(--titre);font-size:19px;line-height:1.2;letter-spacing:-.01em}
+.avis span{font-size:14.5px;line-height:1.4}
+.avis.favorable{background:var(--foret-doux);color:var(--foret)}
+.avis.defavorable{background:var(--terracotta-doux);color:var(--terracotta-texte)}
+/* Carte d'un choix : quand le titre et l'état ne tiennent pas côte à côte, l'état passe sous le titre, entier */
+.souhait .haut{flex-wrap:wrap}
+.souhait .haut .t{flex:1 1 11em}
+.souhait .haut .etat{max-width:100%}
+.champ .lab-i{display:flex;align-items:center;gap:8px}
+/* Pied d'une fenêtre, au téléphone : une commande « souple » prend la largeur de son texte au lieu d'une part égale ;
+   quand toutes ne tiennent pas sur une ligne, la dernière (la principale) passe dessous, sur toute la largeur */
+@media (max-width:759px){.feuille .f-pied .btn.souple{flex:1 1 auto}}
+.feuille .coche-l{display:flex;gap:10px;align-items:flex-start;min-height:44px;font-size:15px;line-height:1.4}
+.feuille .coche-l input{width:22px;height:22px;flex:none;margin-top:1px}
+
 </style>
 </head>
 <body>
@@ -1253,6 +1290,7 @@ const etat = {
     'ech-qui': 'tous', 'doc-tri': 'date'
   },
   reco: { r1: 'alire', r2: 'alire' },    // état des recommandations d'investissement
+  souhaits: [],                          // placements que le client choisit lui-même dans la sélection, avec le rapport d'adéquation et sa décision
   demandeConseil: false
 };
 try { etat.discret = localStorage.getItem('fo-proto-discret') === '1'; } catch (e) { /* stockage indisponible : sans importance */ }
@@ -1291,6 +1329,7 @@ function fermerFeuille() {
 }
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  if ($('#i-pop.vue')) return;                    /* une bulle d'explication ouverte se ferme d'abord, seule : la fenêtre reste */
   if ($('.feuille')) fermerFeuille();
   else if ($('#antoine').innerHTML) fermerAntoine();
 });
@@ -1544,7 +1583,12 @@ const FICTIF = {
   /* Conseil en investissement : profil, répartition cible fixée en entretien, recommandations validées
      par le conseiller, sélection de supports. Tous les supports portent des noms génériques inventés. */
   investir: {
-    profil: { nom: 'Équilibré', horizon: '8 ans', revue: '2026-10-20' },
+    /* horizon, risque moyen maximal, perte supportable, familles connues et réserve de précaution : ce que le rapport d'adéquation vérifie. */
+    profil: { nom: 'Équilibré', horizon: '8 ans', revue: '2026-10-20', risqueMoyenMax: 3.3, perteSupportable: 25, connaissances: ['actions', 'oblig', 'immo', 'liq'], reserve: 45000 },
+    /* Valeurs de démonstration, par classe d'actifs : indicateur de risque d'un avoir qui n'est pas dans la sélection, et perte d'une très
+       mauvaise année, en pourcentage. Elles reprennent, en plus simple, les règles du chantier « conseil en investissement » (sections 15 et 19
+       de son document), qui restent à valider ; celles de l'immobilier sont posées ici. Le serveur portera les règles complètes. */
+    regles: { risqueClasse: { liq: 1, oblig: 3, immo: 3, actions: 4, or: 4, noncote: 6 }, chocClasse: { liq: 0, oblig: 12, immo: 20, actions: 40, or: 20, noncote: 40 } },
     cible: { actions: 55, oblig: 30, immo: 5, liq: 10 },
     tolerance: 3,
     recommandations: [
@@ -1567,14 +1611,14 @@ const FICTIF = {
       { date: '2024-03-14', titre: 'Remplacer trois fonds par leur version sans commission', suite: 'suivie', detail: 'Constatée sur vos relevés d’avril 2024' }
     ],
     gamme: [
-      { id: 'g1', nom: 'Fonds indiciel actions monde', classe: 'actions', genre: 'Fonds indiciel coté', frais: 0.20, risque: 4, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, assurance vie, compte-titres', detenu: true },
-      { id: 'g2', nom: 'Fonds indiciel actions Europe', classe: 'actions', genre: 'Fonds indiciel coté', frais: 0.15, risque: 5, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, compte-titres', detenu: true },
-      { id: 'g3', nom: 'Fonds de petites entreprises françaises', classe: 'actions', genre: 'Fonds géré', frais: 1.90, risque: 5, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, assurance vie', detenu: true },
-      { id: 'g4', nom: 'Fonds de petites entreprises européennes', classe: 'actions', genre: 'Fonds géré', frais: 1.95, risque: 5, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, assurance vie', detenu: false },
-      { id: 'g5', nom: 'Fonds obligataire à échéance 2029', classe: 'oblig', genre: 'Fonds géré', frais: 0.85, risque: 2, horizon: '3 ans', enveloppes: 'Assurance vie, compte-titres', detenu: true },
-      { id: 'g6', nom: 'Fonds en euros', classe: 'oblig', genre: 'Support garanti de l’assurance vie', frais: 0.60, risque: 1, horizon: '1 an', enveloppes: 'Assurance vie', detenu: true },
-      { id: 'g7', nom: 'Or physique', classe: 'or', genre: 'Fonds indiciel coté', frais: 0.12, risque: 4, horizon: '8 ans', enveloppes: 'Compte-titres', detenu: false },
-      { id: 'g8', nom: 'Immobilier diversifié', classe: 'immo', genre: 'Société civile de placement immobilier', frais: 1.10, risque: 3, horizon: '10 ans', enveloppes: 'Assurance vie, détention directe', detenu: true }
+      { id: 'g1', nom: 'Fonds indiciel actions monde', classe: 'actions', genre: 'Fonds indiciel coté', frais: 0.20, risque: 4, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, assurance vie, compte-titres', ou: ['pea', 'av', 'cto'], detenu: true },
+      { id: 'g2', nom: 'Fonds indiciel actions Europe', classe: 'actions', genre: 'Fonds indiciel coté', frais: 0.15, risque: 5, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, compte-titres', ou: ['pea', 'cto'], detenu: true },
+      { id: 'g3', nom: 'Fonds de petites entreprises françaises', classe: 'actions', genre: 'Fonds géré', frais: 1.90, risque: 5, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, assurance vie', ou: ['pea', 'av'], detenu: true },
+      { id: 'g4', nom: 'Fonds de petites entreprises européennes', classe: 'actions', genre: 'Fonds géré', frais: 1.95, risque: 5, horizon: '8 ans', enveloppes: 'Plan d’épargne en actions, assurance vie', ou: ['pea', 'av'], detenu: false },
+      { id: 'g5', nom: 'Fonds obligataire à échéance 2029', classe: 'oblig', genre: 'Fonds géré', frais: 0.85, risque: 2, horizon: '3 ans', enveloppes: 'Assurance vie, compte-titres', ou: ['av', 'cto'], detenu: true },
+      { id: 'g6', nom: 'Fonds en euros', classe: 'oblig', genre: 'Support garanti de l’assurance vie', frais: 0.60, risque: 1, horizon: '1 an', enveloppes: 'Assurance vie', ou: ['av'], garanti: true, detenu: true },
+      { id: 'g7', nom: 'Or physique', classe: 'or', genre: 'Fonds indiciel coté', frais: 0.12, risque: 4, horizon: '8 ans', enveloppes: 'Compte-titres', ou: ['cto'], detenu: false },
+      { id: 'g8', nom: 'Immobilier diversifié', classe: 'immo', genre: 'Société civile de placement immobilier', frais: 1.10, risque: 3, horizon: '10 ans', enveloppes: 'Assurance vie, détention directe', ou: ['av'], detenu: true }
     ]
   },
 
@@ -1972,7 +2016,7 @@ const NAV = [
 function compteurs() {
   return {
     'mise-a-jour': majTerminee() ? 0 : 1,
-    'investissements': recosALire().length,
+    'investissements': recosALire().length + souhaitsALire().length,
     'documents': etat.lettreSignee ? 0 : 1,
     'gouvernance': etat.ordreConfirme ? 0 : 1
   };
@@ -2085,7 +2129,7 @@ let premierRendu = true;
 function rendre(garderFocus) {
   const h = location.hash.replace('#', '');
   etat.route = ROUTES[h] ? h : (h.indexOf('patrimoine-') === 0 ? 'patrimoine' : 'accueil');
-  document.title = ROUTES[etat.route].titre + ' : espace client Fox Order (prototype)';
+  document.title = ROUTES[etat.route].titre + ' : Fox Order';
   let cle = null;
   if (garderFocus && document.activeElement && document.activeElement.dataset) cle = document.activeElement.dataset.cle;
   document.body.classList.toggle('discret', etat.discret);
@@ -2252,9 +2296,10 @@ function vueAccueil() {
     ? '<div class="rangs">' + t.map(a => '<a class="rang libre" href="#' + a.vers + '"><span class="ic terra">' + I(a.icone, 20) + '</span><span class="mil"><span class="t">' + a.titre + '</span></span><span class="chev">' + I('chevron-d', 18) + '</span></a>').join('') + '</div>'
     : '<p class="vide">Tout est fait. Antoine vous préviendra dès qu’un point demandera votre attention.</p>';
 
-  const recos = recosALire();
-  const invest = recos.length
-    ? '<div class="rangs">' + recos.map(r => '<a class="rang" href="#investissements"><span class="ic foret">' + I('investir', 20) + '</span><span class="mil"><span class="t">' + r.court + '</span><span class="s">' + affLigne(ligne(r.enveloppe)).court + '</span></span><span class="fin"><span class="v mnt">' + eur(r.montant) + '</span></span></a>').join('') + '</div>'
+  const recos = recosALire(), rapports = souhaitsALire();
+  const rangInvest = (titre, sous, montant) => '<a class="rang" href="#investissements"><span class="ic foret">' + I('investir', 20) + '</span><span class="mil"><span class="t">' + titre + '</span><span class="s">' + sous + '</span></span><span class="fin"><span class="v mnt">' + eur(montant) + '</span></span></a>';
+  const invest = recos.length + rapports.length
+    ? '<div class="rangs">' + rapports.map(s => rangInvest('Rapport d’adéquation à lire', gammeDe(s.support).nom, s.montant)).join('') + recos.map(r => rangInvest(r.court, affLigne(ligne(r.enveloppe)).court, r.montant)).join('') + '</div>'
     : '<p class="vide">Aucune recommandation en attente.</p>';
 
   const repartition = repartitionHtml(partsParClasse(lignes()));
@@ -2272,7 +2317,7 @@ function vueAccueil() {
   return '<header class="tete"><div class="rangee"><h1 class="titre">Bonjour Claire</h1></div><p class="verdict">' + phrase + '</p></header>' +
     '<div class="grille c2"><div class="col">' + hero + gestes +
     bloc('À faire' + (t.length ? '<span class="compteur">' + t.length + '</span>' : ''), afaire, '', '', t.length ? 'attend' : '') +
-    bloc('Conseil en investissement' + (recos.length ? '<span class="compteur calme">' + recos.length + '</span>' : ''), invest, '<a href="#investissements">Tout voir<span class="sr"> : le conseil en investissement</span></a>', 'Des recommandations préparées pour vous, relues et validées par votre conseiller. Vous restez libre de les suivre ou non.') +
+    bloc('Conseil en investissement' + (recos.length + rapports.length ? '<span class="compteur calme">' + (recos.length + rapports.length) + '</span>' : ''), invest, '<a href="#investissements">Tout voir<span class="sr"> : le conseil en investissement</span></a>', 'Des recommandations préparées pour vous, relues et validées par votre conseiller. Vous restez libre de les suivre ou non.') +
     '</div><div class="col">' +
     bloc('Répartition', repartition, '<a href="#patrimoine-par-classe">Détail<span class="sr"> de la répartition</span></a>', 'Chaque enveloppe est répartie selon ce qu’elle contient réellement : une assurance vie investie en actions compte parmi les actions.') +
     bloc('Prochaines échéances', echeances, '<a href="#impots">Tout voir<span class="sr"> : les échéances</span></a>') +
@@ -3037,6 +3082,21 @@ const NOMS_ALLOC = { actions: 'Actions', oblig: 'Obligations', immo: 'Immobilier
 function supportDe(r) { return FICTIF.investir.gamme.find(g => g.id === r.support); }
 function mouvementsRecos() { return FICTIF.investir.recommandations.filter(r => etat.reco[r.id] !== 'declinee').map(r => ({ classeDe: r.classeDe, classeVers: r.classeVers, montant: r.montant })); }
 
+/* Les deux services d'investissement de Fox Order, en tête de la rubrique.
+   « Investir avec Fox Order » : le conseil, qui commence par une demande.
+   « Faire analyser un autre investissement » : l'avis du Family Office sur un placement venu d'ailleurs. Pas encore ouvert :
+   la tuile l'annonce, sans commande à presser. */
+function servicesInvestir() {
+  const tuile = (classe, icone, titre, bulle, suite) =>
+    '<div class="service' + (classe ? ' ' + classe : '') + '"><span class="puce' + (classe ? '' : ' foret') + '">' + I(icone, 22) + '</span><h2>' + titre + info(bulle) + '</h2>' + suite + '</div>';
+  return '<section class="services" aria-label="Les deux services d’investissement de Fox Order">' +
+    tuile('', 'investir', 'Investir avec Fox Order', 'Choisissez vous-même un placement dans la sélection, ou demandez un conseil. Dans les deux cas, la réponse de Fox Order est relue, validée et signée par votre conseiller agréé. Vous décidez, et vous passez vous-même vos ordres.',
+      '<div class="rang-actions"><button class="btn plein petit-b" data-a="choisir-placement" data-cle="choisir-placement">Choisir un placement</button>' +
+      '<button class="btn contour petit-b" data-a="demander-conseil" data-cle="demander-conseil">Demander un conseil</button></div>') +
+    tuile('bientot', 'recherche', 'Faire analyser un autre investissement', 'Une proposition reçue de votre banque ou d’un autre conseiller, ou un placement que vous détenez déjà : Fox Order vous en donnera un avis écrit et tranché.',
+      '<span class="pastille neutre">Bientôt disponible</span>') + '</section>';
+}
+
 function recoCarte(r) {
   const st = ETATS_RECO[etat.reco[r.id]], g = supportDe(r);
   return '<button class="reco" data-a="voir-reco" data-id="' + r.id + '" data-cle="reco-' + r.id + '">' +
@@ -3088,9 +3148,12 @@ function vueInvestissements() {
       : '<p class="vide">Aucun support ne correspond à ces filtres.</p>') +
     '<div class="groupe-t" style="padding-top:12px"><span>' + G.length + (G.length > 1 ? ' supports' : ' support') + '</span><span>Frais par an · risque sur 7</span></div>';
 
-  const phrase = alire.length ? (alire.length > 1 ? alire.length + ' recommandations attendent' : 'Une recommandation attend') + ' votre lecture.'
+  /* Ce qui attend une lecture : les rapports d'adéquation des choix du client, puis les recommandations du conseiller, en une seule phrase. */
+  const nR = souhaitsALire().length, nA = alire.length;
+  const alireTxt = [nR ? (nR > 1 ? nR + ' rapports d’adéquation' : 'un rapport d’adéquation') : '', nA ? (nA > 1 ? nA + ' recommandations' : 'une recommandation') : ''].filter(x => x).join(' et ');
+  const phrase = alireTxt ? alireTxt.charAt(0).toUpperCase() + alireTxt.slice(1) + (nR + nA > 1 ? ' attendent' : ' attend') + ' votre lecture.'
     : enCours ? 'Vos décisions sont prises. Antoine les constatera sur vos prochains relevés.' : 'Aucune recommandation en attente.';
-  return tete('Investissements', phrase, null, '<button class="btn plein petit-b" data-a="demander-conseil">' + I('plus', 16) + 'Demander un conseil</button>') + kp +
+  return tete('Investissements', phrase) + servicesInvestir() + kp + souhaitsHtml() +
     bloc('Recommandations de votre conseiller', recos, '', 'Chaque recommandation est préparée pour vous, puis relue, validée et signée par votre conseiller agréé. Fox Order conseille : vous décidez, et vous passez vous-même vos ordres.') +
     '<div class="grille c2"><div class="col">' +
     bloc('Votre répartition face à la cible', '<div style="margin-bottom:14px">' + seg('inv-effet', f['inv-effet'], [['non', 'Aujourd’hui'], ['oui', 'Après les recommandations']], 'Situation affichée') + '</div>' + allocHtml(), '',
@@ -3145,8 +3208,8 @@ ACTIONS['voir-support'] = el => {
     '<div class="f-kpis">' + kpi('Frais par an', pct(g.frais, 2), 'prélevés dans la valeur du support') + kpi('Risque', g.risque + ' sur 7', 'durée conseillée : ' + g.horizon) + '</div>' +
     '<div class="faits" style="display:grid;gap:8px;margin-bottom:12px"><span>' + I('patrimoine', 15) + g.genre + ' · ' + CLASSES_GAMME[g.classe][0] + '</span><span>' + I('banque', 15) + 'Accessible dans : ' + minuscule(g.enveloppes) + '</span>' +
     '<span>' + I(g.detenu ? 'prouve' : 'declare', 15) + (chez.length ? 'Vous en détenez dans : ' + chez.map(minuscule).join(', ') : g.detenu ? 'Vous en détenez déjà' : 'Vous n’en détenez pas') + '</span></div>' +
-    '<p class="note garder">Ce support n’est pas une recommandation. Pour savoir s’il vous convient, demandez un conseil : votre conseiller étudie votre situation avant toute proposition.</p>',
-    '<button class="btn contour" data-a="piece-reco" data-n="cles">Document d’informations clés</button><button class="btn plein" data-a="demander-conseil">Demander un conseil</button>');
+    '<p class="note garder">Ce support n’est pas une recommandation. Si vous le choisissez, Antoine prépare un rapport d’adéquation, validé par votre conseiller, avant que vous décidiez.</p>',
+    '<button class="btn contour souple" data-a="piece-reco" data-n="cles">Document d’informations clés</button><button class="btn plein souple" data-a="choisir-placement" data-id="' + g.id + '">Investir dans ce support</button>');
 };
 
 /* ---------- Demander un conseil ---------- */
@@ -3161,6 +3224,246 @@ ACTIONS['demander-conseil'] = () => {
     '<div class="f-pied" style="margin-top:4px"><button type="button" class="btn contour" data-a="fermer">Annuler</button><button class="btn plein">Envoyer ma demande</button></div></form>');
 };
 ACTIONS['envoi-conseil'] = () => { etat.demandeConseil = true; fermerFeuille(); dire('Demande transmise à votre conseiller. Réponse écrite sous deux jours ouvrés.'); };
+
+/* ==========================================================================
+   Investir avec Fox Order : le client choisit lui-même un placement dans la sélection.
+   Antoine prépare un rapport d'adéquation ; le conseiller agréé le relit, le valide et le signe ; le client dit s'il suit le conseil.
+   Fox Order garde trois issues en mémoire : fait en suivant le conseil, fait contre le conseil (après une mise en garde
+   confirmée), pas fait conformément au conseil. Quatrième cas, plus rare : pas fait malgré un avis favorable.
+
+   Le rapport vérifie ce qu'un conseil doit vérifier : la répartition face à la cible, la durée, le risque de l'ensemble des
+   placements, la perte que le client peut supporter, sa connaissance du type de placement, et sa réserve de précaution.
+   Aucun chiffre de doctrine n'est écrit ici : ils sont dans les données (FICTIF.investir.profil et FICTIF.investir.regles).
+   Ce qui est décidé mais pas encore prouvé par un relevé (recommandations acceptées, choix faits) compte déjà dans le calcul.
+   ========================================================================== */
+/* La personne connectée ne passe d'ordre que sur les enveloppes à son nom (seule ou en commun). */
+function connectee() { return FICTIF.foyer.membres.find(m => m.lien === 'Vous').prenom; }
+const DIT_CLASSE = { actions: ['Vos actions', 'passeraient'], oblig: ['Vos obligations', 'passeraient'], immo: ['Votre immobilier', 'passerait'], or: ['L’or', 'passerait'], liq: ['Vos liquidités', 'passeraient'] };
+const NOMS_CLASSE = { actions: 'Actions', oblig: 'Obligations', immo: 'Immobilier', liq: 'Liquidités', or: 'Or' };
+const SOURCES = {
+  especes: { libelle: 'Les espèces du compte', court: 'Espèces du compte', de: 'Espèces', trop: 'Il n’y a que {x} d’espèces disponibles sur ce compte.' },
+  euros: { libelle: 'Le fonds en euros du contrat', court: 'Fonds en euros', de: 'Fonds en euros', trop: 'Le fonds en euros de ce contrat ne compte que {x} disponibles.' },
+  versement: { libelle: 'Un versement depuis vos livrets', court: 'Versement depuis vos livrets', de: 'Livrets', trop: 'Vos livrets ne comptent que {x} disponibles.' }
+};
+function gammeDe(id) { return FICTIF.investir.gamme.find(g => g.id === id); }
+function souhaitDe(id) { return etat.souhaits.find(s => s.id === id); }
+function souhaitsALire() { return etat.souhaits.filter(s => s.avis && !s.decision); }
+function couleurClasse(k) { return (CLASSES[k] || {}).c || (CLASSES_GAMME[k] || [])[1] || '#8A8378'; }
+function nb1(x) { return x.toFixed(1).replace('.', ','); }
+
+/* ---------- Ce qui est engagé, ce qui reste disponible ---------- */
+function mouvementDe(d) {
+  const l = ligne(d.enveloppe), c = d.source === 'euros' ? (l.composition || []).find(x => x.nom === 'Fonds en euros') : null;
+  return { enveloppe: d.enveloppe, source: d.source, de: SOURCES[d.source].de, classeDe: c ? c.classe : 'liq', classeVers: gammeDe(d.support).classe, montant: d.montant, support: d.support };
+}
+/* Ce qui est décidé sans être encore prouvé par un relevé. Avec « avecAttente » : aussi ce qui est demandé, tant que le client n'y a pas renoncé. */
+function mouvementsEngages(avecAttente) {
+  const m = [];
+  FICTIF.investir.recommandations.forEach(r => {
+    if (etat.reco[r.id] === 'acceptee' || etat.reco[r.id] === 'passee') m.push({ enveloppe: r.enveloppe, source: r.classeDe === 'liq' ? 'especes' : 'euros', de: r.de, classeDe: r.classeDe, classeVers: r.classeVers, montant: r.montant, support: r.support });
+  });
+  etat.souhaits.forEach(s => { if (s.decision === 'suivi' || s.decision === 'contre' || (avecAttente && !s.decision)) m.push(mouvementDe(s)); });
+  return m;
+}
+function engage(enveloppe, source, avecAttente) {
+  return somme(mouvementsEngages(avecAttente).filter(m => m.source === source && (source === 'versement' || m.enveloppe === enveloppe)), m => m.montant);
+}
+/* Enveloppes où le support est accessible et où la personne connectée peut passer un ordre elle-même. */
+function enveloppesPour(g) { return g.ou.map(ligne).filter(l => l.titulaire.indexOf(connectee()) >= 0); }
+/* D'où peut venir l'argent, pour un support dans une enveloppe : ses espèces, son fonds en euros (sauf pour acheter ce même fonds), ou un versement.
+   Ce qui est déjà demandé ou décidé ailleurs est retiré de ce qui reste disponible. */
+function sourcesDe(l, g) {
+  const c = l.composition || [], s = [], esp = c.find(x => x.classe === 'liq'), eu = c.find(x => x.nom === 'Fonds en euros' && x.nom !== g.nom);
+  const reste = (valeur, enveloppe, source) => Math.max(0, valeur - engage(enveloppe, source, true));
+  if (esp) s.push(Object.assign({ id: 'especes', dispo: reste(esp.valeur, l.id, 'especes') }, SOURCES.especes));
+  if (eu) s.push(Object.assign({ id: 'euros', dispo: reste(eu.valeur, l.id, 'euros') }, SOURCES.euros));
+  s.push(Object.assign({ id: 'versement', dispo: reste(ligne('livrets').valeur, 'livrets', 'versement') }, SOURCES.versement));
+  return s;
+}
+
+/* ---------- Le calcul du rapport d'adéquation ---------- */
+/* Répartition, risque moyen (sur 7) et perte d'une très mauvaise année (en %) des placements financiers, mouvements compris.
+   Un avoir de la sélection porte son propre indicateur de risque ; les autres prennent celui de leur classe. */
+function photoPlacements(mouvements) {
+  const R = FICTIF.investir.regles, G = FICTIF.investir.gamme, parts = {};
+  let total = 0, risque = 0, perte = 0;
+  const ajoute = (nom, classe, valeur) => {
+    const g = G.find(x => x.nom === nom);
+    total += valeur; parts[classe] = (parts[classe] || 0) + valeur;
+    risque += valeur * (g ? g.risque : R.risqueClasse[classe]);
+    perte += valeur * (g && g.garanti ? 0 : R.chocClasse[classe]) / 100;
+  };
+  lignes().filter(l => l.famille === 'placements').forEach(l => (l.composition || [{ nom: l.nom, classe: l.classe, valeur: l.valeur }]).forEach(c => ajoute(c.nom, c.classe, c.valeur)));
+  mouvements.forEach(m => { const g = gammeDe(m.support); ajoute(m.de, m.classeDe, -m.montant); ajoute(g.nom, g.classe, m.montant); });
+  Object.keys(parts).forEach(k => { parts[k] = parts[k] / total * 100; });
+  return { parts: parts, risque: risque / total, perte: perte / total * 100 };
+}
+/* d : { support, enveloppe, source, montant }. Rend l'avis (favorable ou défavorable), ses raisons une à une, et ce que l'opération change. */
+function avisPlacement(d) {
+  const V = FICTIF.investir, P = V.profil, g = gammeDe(d.support), m = mouvementDe(d), engages = mouvementsEngages();
+  const avant = photoPlacements(engages), apres = photoPlacements(engages.concat([m]));
+  const cible = V.cible[g.classe] || 0, pa = avant.parts[g.classe] || 0, pp = apres.parts[g.classe] || 0;
+  const haut = pp > cible + V.tolerance + 1e-9, juste = haut && Math.round(pp - cible) <= V.tolerance;      // dépassement de justesse : il se dit avec une décimale
+  const dec = juste || Math.round(pa) === Math.round(pp) ? 1 : 0, dit = DIT_CLASSE[g.classe];
+  const raisons = [];
+  raisons.push({ cle: 'repartition', ok: !haut, texte: dit[0] + ' ' + dit[1] + ' de ' + pct(pa, dec) + ' à ' + pct(pp, dec) + ' de vos placements financiers, pour une cible de ' + cible + ' %' +
+    (haut ? ' : ' + (juste ? nb1(pp - cible) : Math.round(pp - cible)) + ' points au-dessus, quand un écart de ' + V.tolerance + ' points est jugé normal.' : '.') });
+  const long = parseInt(g.horizon, 10) > parseInt(P.horizon, 10);
+  raisons.push({ cle: 'duree', ok: !long, texte: 'Durée conseillée de ce support : ' + g.horizon + '. Votre horizon de placement : ' + P.horizon + '.' + (long ? ' Ce support demande plus de temps que vous n’en avez prévu.' : '') });
+  raisons.push({ cle: 'risque', ok: apres.risque <= P.risqueMoyenMax + 1e-9, texte: 'Risque moyen de vos placements après l’opération : ' + nb1(apres.risque) + ' sur 7, pour un maximum de ' + nb1(P.risqueMoyenMax) + ' avec votre profil ' + minuscule(P.nom) + '.' });
+  raisons.push({ cle: 'pertes', ok: apres.perte <= P.perteSupportable + 1e-9, texte: 'Lors d’une très mauvaise année, la perte estimée de vos placements serait de ' + pct(apres.perte, 1) + ', pour une limite de ' + pct(P.perteSupportable, 0) + ' fixée avec votre conseiller.' });
+  const connu = P.connaissances.indexOf(g.classe) >= 0;
+  raisons.push({ cle: 'connaissances', ok: connu, texte: connu ? 'Vous connaissez ce type de placement.' : (g.classe === 'or' ? 'L’or' : 'Ce type de placement') + ' est nouveau pour vous : votre conseiller vous l’explique avant tout achat.' });
+  if (d.source === 'versement') {
+    const libre = Math.max(0, ligne('livrets').valeur - engage('livrets', 'versement') - P.reserve), entame = d.montant > libre + 1e-9;
+    raisons.push({ cle: 'reserve', ok: !entame, texte: entame ? 'Ce versement entamerait votre réserve de précaution de ' + eur(P.reserve) + ' : au-delà d’elle, vos livrets comptent ' + eur(libre) + '.' : 'Votre réserve de précaution de ' + eur(P.reserve) + ' reste entière.' });
+  }
+  return { verdict: raisons.every(r => r.ok) ? 'favorable' : 'defavorable', raisons: raisons, classes: g.classe === m.classeDe ? [g.classe] : [g.classe, m.classeDe], avant: avant.parts, apres: apres.parts,
+    frais: 'Frais du support : ' + pct(g.frais, 2) + ' par an, soit ' + eur(d.montant * g.frais / 100) + ' par an pour ' + eur(d.montant) + '. ' + (d.source === 'euros' ? 'Arbitrage gratuit sur votre contrat.' : 'Frais d’ordre de votre établissement en plus.') + ' Fox Order ne garde aucune commission sur ce placement.' };
+}
+
+/* ---------- Les choix du client, dans la rubrique ---------- */
+function etatSouhait(s) {
+  if (!s.avis) return ['cours', 'Rapport en préparation'];
+  if (!s.decision) return ['vous', 'Rapport à lire'];
+  if (s.decision === 'conforme') return ['fait', 'Pas fait, conformément au conseil'];
+  if (s.decision === 'renonce') return ['fait', 'Pas fait, malgré un avis favorable'];
+  return [s.ordre ? 'cours' : 'avoir', (s.decision === 'suivi' ? 'Conseil suivi' : 'Contre le conseil') + (s.ordre ? ' · en attente du relevé' : ' · à exécuter par vous')];
+}
+function souhaitCarte(s) {
+  const g = gammeDe(s.support), e = etatSouhait(s);
+  return '<button class="reco souhait" data-a="voir-souhait" data-id="' + s.id + '" data-cle="souhait-' + s.id + '">' +
+    '<span class="haut"><span class="t">' + g.nom + '</span>' + etatHtml(e[0], e[1]) + '</span>' +
+    '<span class="montant mnt">' + eur(s.montant) + '</span>' +
+    '<span class="faits"><span>' + I('banque', 15) + affLigne(ligne(s.enveloppe)).court + '</span><span>' + SOURCES[s.source].court + '</span><span>Risque ' + risqueHtml(g.risque) + '</span><span>Frais <b>' + pct(g.frais, 2) + '</b> par an</span></span></button>';
+}
+function souhaitsHtml() {
+  if (!etat.souhaits.length) return '';
+  return bloc('Vos choix dans la sélection', '<div class="cartes c2">' + etat.souhaits.slice().reverse().map(souhaitCarte).join('') + '</div>', '',
+    'Les placements que vous avez choisis vous-même. Pour chacun, Antoine prépare un rapport d’adéquation, validé et signé par votre conseiller agréé. Votre décision est gardée dans votre dossier, avec le conseil reçu.');
+}
+
+/* ---------- Choisir un placement ---------- */
+function majSouhait(enveloppes) {
+  const g = gammeDe($('#sh-support').value);
+  $('#sh-fiche').textContent = typoTexte(g.genre + ' · ' + CLASSES_GAMME[g.classe][0] + ' · frais de ' + pct(g.frais, 2) + ' par an · risque ' + g.risque + ' sur 7');
+  if (enveloppes) {
+    const miennes = enveloppesPour(g), autres = g.ou.map(ligne).filter(l => l.titulaire.indexOf(connectee()) < 0), i = $('.feuille .lab-i .i-btn');
+    $('#sh-enveloppe').innerHTML = miennes.map(l => '<option value="' + l.id + '">' + affLigne(l).court + '</option>').join('');
+    i.hidden = !autres.length;
+    i.dataset.info = autres.map(l => affLigne(l).court + ' : au nom ' + de(l.titulaire) + '.').join(' ') + ' Seul le titulaire d’une enveloppe peut y passer un ordre.';
+  }
+  const l = ligne($('#sh-enveloppe').value);
+  $('#sh-source').innerHTML = (l ? sourcesDe(l, g) : []).map(s => '<option value="' + s.id + '">' + s.libelle + ' (' + eur(s.dispo) + ' disponibles)</option>').join('');
+}
+ACTIONS['choisir-placement'] = el => {
+  const G = FICTIF.investir.gamme, id = (el && el.dataset && el.dataset.id) || G[0].id;
+  ouvrirFeuille('Investir avec Fox Order',
+    '<form class="formulaire" data-f="souhait" novalidate>' +
+    '<div class="champ"><label for="sh-support">Le placement</label><select id="sh-support" data-i="souhait-support">' + G.map(g => '<option value="' + g.id + '"' + (g.id === id ? ' selected' : '') + '>' + g.nom + '</option>').join('') + '</select><span class="aide" id="sh-fiche"></span></div>' +
+    '<div class="champ"><span class="lab-i"><label for="sh-enveloppe">Dans quelle enveloppe</label>' + info('') + '</span><select id="sh-enveloppe" data-i="souhait-enveloppe"></select></div>' +
+    '<div class="champ"><label for="sh-source">Avec quel argent</label><select id="sh-source"></select></div>' +
+    '<div class="champ"><label for="sh-montant">Montant, en euros</label><input id="sh-montant" type="number" inputmode="numeric" min="0" step="100" aria-describedby="sh-erreur"></div>' +
+    '<p class="petit" id="sh-erreur" role="alert" style="color:var(--terracotta-texte)"></p>' +
+    '<p class="petit">Antoine prépare un rapport d’adéquation ; votre conseiller agréé le valide avant de vous l’envoyer. Vous décidez ensuite.</p>' +
+    '<div class="f-pied" style="margin-top:4px"><button type="button" class="btn contour souple" data-a="fermer">Annuler</button><button class="btn plein souple">Demander le rapport</button></div></form>');
+  majSouhait(true);
+};
+ACTIONS['saisie-souhait-support'] = () => majSouhait(true);
+ACTIONS['saisie-souhait-enveloppe'] = () => majSouhait(false);
+ACTIONS['envoi-souhait'] = f => {
+  const g = gammeDe($('#sh-support', f).value), l = ligne($('#sh-enveloppe', f).value), err = $('#sh-erreur', f);
+  if (!l) { err.textContent = 'Ce support n’est accessible dans aucune enveloppe à votre nom : parlez-en à votre conseiller.'; return; }
+  const montant = Math.round(Number($('#sh-montant', f).value)), src = sourcesDe(l, g).find(s => s.id === $('#sh-source', f).value);
+  if (!(montant > 0)) { err.textContent = 'Indiquez un montant.'; $('#sh-montant', f).focus(); return; }
+  if (montant > src.dispo) { err.textContent = typoTexte(src.trop.replace('{x}', eur(src.dispo))); $('#sh-montant', f).focus(); return; }
+  const s = { id: 's' + (etat.souhaits.length + 1), support: g.id, enveloppe: l.id, source: src.id, montant: montant, date: AUJOURDHUI, avis: null, recu: null, limite: null, decision: null, ordre: false };
+  etat.souhaits.push(s);
+  suiteSouhait(s);
+};
+/* Après chaque geste : la rubrique se redessine, puis la fenêtre du choix se rouvre dans son nouvel état, ou un message bref le confirme. */
+function suiteSouhait(s, message) {
+  fermerFeuille(); rendre();
+  if (message) dire(message); else ACTIONS['voir-souhait']({ dataset: { id: s.id } });
+}
+
+/* ---------- Le rapport d'adéquation et la réponse du client ---------- */
+function marcheSouhait(s) {
+  const g = gammeDe(s.support), l = ligne(s.enveloppe), ou = minuscule(affLigne(l).court), e = ['Connectez-vous à votre espace ' + l.etab + '.'];
+  if (s.source === 'versement') e.push('Versez ' + eur(s.montant) + ' depuis vos livrets sur votre ' + ou + '.');
+  e.push(s.source === 'euros' ? 'Sur votre contrat, arbitrez ' + eur(s.montant) + ' du fonds en euros vers le support « ' + g.nom + ' ».' : 'Sur votre ' + ou + ', achetez pour ' + eur(s.montant) + ' du support « ' + g.nom + ' ».');
+  e.push('Revenez ici : votre prochain relevé prouvera l’opération.');
+  return '<section class="bloc" style="margin-top:0"><div class="bloc-tete"><h2>À vous de jouer</h2></div><ol class="etapes-v">' + e.map(x => '<li><span>' + x + '</span></li>').join('') + '</ol></section>';
+}
+function rapportSouhait(s) {
+  const V = FICTIF.investir, A = s.avis, g = gammeDe(s.support), l = ligne(s.enveloppe), fav = A.verdict === 'favorable';
+  const ko = A.raisons.filter(r => !r.ok), okr = A.raisons.filter(r => r.ok), vus = fav ? okr.slice(0, 1) : ko, plies = fav ? okr.slice(1) : okr, puces = (t, c) => '<ul class="puces-c' + (c ? ' ' + c : '') + '">' + t.map(r => '<li><span>' + (r.texte || r) + '</span></li>').join('') + '</ul>';
+  const change = '<div class="avant-apres">' + A.classes.map(k =>
+    '<div class="l"><span style="display:flex;align-items:center;gap:8px"><span class="pastille-c" style="background:' + couleurClasse(k) + ';border-radius:50%"></span>' + NOMS_CLASSE[k] + '</span><span class="nb">' + pct(A.avant[k] || 0, 0) + '</span><span class="fl">' + I('fleche', 14) + '</span><b class="nb">' + pct(A.apres[k] || 0, 0) + '</b></div>' +
+    '<p class="petit" style="margin:-4px 0 4px 18px">cible : ' + (V.cible[k] || 0) + ' %</p>').join('') + '</div>';
+  const note = t => '<p class="note garder">' + t + '</p>', fait = s.decision === 'suivi' || s.decision === 'contre';
+  const suite = !s.decision ? '' : '<div style="display:grid;gap:12px;margin-bottom:12px">' +
+    (s.decision === 'contre' ? note('Vous investissez contre le conseil de Fox Order : votre décision et nos raisons sont notées dans votre dossier.') : '') +
+    (fait ? (s.ordre ? note('Ordre déclaré passé. Antoine le constatera sur votre prochain relevé.') : marcheSouhait(s))
+      : note(s.decision === 'conforme' ? 'Vous n’avez pas investi, comme Fox Order vous le conseillait.' : 'Vous n’avez pas investi. L’avis de Fox Order était favorable.')) + '</div>';
+  return '<div class="f-kpis">' + kpi('Montant', mnt(s.montant), minuscule(SOURCES[s.source].court)) + kpi('Où', affLigne(l).court, l.etab) + '</div>' +
+    '<div class="avis ' + (fav ? 'favorable' : 'defavorable') + '">' + I(fav ? 'check' : 'alerte', 22) + '<div><b>' + (fav ? 'Avis favorable' : 'Avis défavorable') + '</b><span>' + (fav ? 'Fox Order vous conseille ce placement.' : 'Fox Order vous déconseille ce placement.') + '</span></div></div>' + suite +
+    '<section class="bloc" style="margin-top:0"><div class="bloc-tete"><h2>Pourquoi</h2></div>' + puces(vus, fav ? '' : 'alerte') +
+    (plies.length ? '<details class="plus"><summary>Ce que Fox Order a ' + (fav ? 'aussi ' : '') + 'vérifié · ' + plies.length + (plies.length > 1 ? ' points conformes' : ' point conforme') + '</summary>' + puces(plies) + '</details>' : '') + '</section>' +
+    '<section class="bloc" style="margin-top:12px"><div class="bloc-tete"><h2>Ce que cela change</h2></div>' + change + '</section>' +
+    '<section class="bloc" style="margin-top:12px"><div class="bloc-tete"><h2>À savoir avant de décider</h2></div>' +
+    puces([g.garanti ? 'Le capital du fonds en euros est garanti par l’assureur ; son rendement ne l’est pas.' : 'Vous pouvez perdre une partie du capital investi.', 'À conserver ' + g.horizon + ' au moins.', A.frais], 'alerte') +
+    '<div class="rang-actions" style="margin-top:12px"><button class="btn contour petit-b" data-a="piece-reco" data-n="adequation">' + I('fichier', 16) + 'Déclaration d’adéquation</button><button class="btn contour petit-b" data-a="piece-reco" data-n="cles">' + I('fichier', 16) + 'Document d’informations clés</button></div></section>' +
+    '<p class="petit" style="margin-top:12px">Rapport préparé par Antoine, relu, validé et signé par votre conseiller agréé le ' + dateLongue(s.recu) + ', valable jusqu’au ' + dateLongue(s.limite) + '. Vous restez libre de votre décision, et vous passez vous-même vos ordres.</p>';
+}
+ACTIONS['voir-souhait'] = el => {
+  const s = souhaitDe(el.dataset.id), g = gammeDe(s.support), id = ' data-id="' + s.id + '"';
+  if (!s.avis) {
+    ouvrirFeuille(g.nom,
+      '<div class="f-kpis">' + kpi('Montant', mnt(s.montant), minuscule(SOURCES[s.source].court)) + kpi('Où', affLigne(ligne(s.enveloppe)).court, ligne(s.enveloppe).etab) + '</div>' +
+      '<section class="bloc" style="margin-top:0"><div class="bloc-tete"><h2>Votre demande est transmise</h2></div><ol class="etapes-v"><li><span>Antoine prépare votre rapport d’adéquation.</span></li>' +
+      '<li><span>Votre conseiller agréé le relit, le valide et le signe.</span></li><li><span>Vous le recevez ici, sous deux jours ouvrés, et vous décidez.</span></li></ol></section>' +
+      '<p class="petit" style="margin-top:12px">Dans ce prototype, le rapport vous parvient dès que vous le demandez.</p>',
+      '<button class="btn contour souple" data-a="fermer">Fermer</button><button class="btn plein souple" data-a="souhait-recevoir"' + id + '>Recevoir le rapport</button>');
+    return;
+  }
+  const fav = s.avis.verdict === 'favorable', parler = '<button class="btn contour souple" data-a="rdv">En parler</button>';
+  const pied = !s.decision
+    ? (fav ? '<button class="btn contour souple" data-a="souhait-renoncer"' + id + '>Je ne le fais pas</button>' + parler + '<button class="btn plein souple" data-a="souhait-faire"' + id + '>Je le fais</button>'
+      : '<button class="btn contour souple" data-a="souhait-contre"' + id + '>Je le fais quand même</button>' + parler + '<button class="btn plein souple" data-a="souhait-renoncer"' + id + '>Je ne le fais pas</button>')
+    : s.ordre ? '<button class="btn plein souple" data-a="fermer">Fermer</button>'
+    : '<button class="btn contour souple" data-a="souhait-revenir"' + id + '>Revenir sur ma décision</button>' +
+      ((s.decision === 'suivi' || s.decision === 'contre') ? '<button class="btn plein souple" data-a="souhait-passe"' + id + '>J’ai passé l’ordre</button>' : '<button class="btn plein souple" data-a="fermer">Fermer</button>');
+  ouvrirFeuille(g.nom, rapportSouhait(s), pied);
+};
+ACTIONS['souhait-recevoir'] = el => {
+  const s = souhaitDe(el.dataset.id);
+  s.avis = avisPlacement(s); s.recu = AUJOURDHUI; s.limite = new Date(Date.parse(AUJOURDHUI) + 30 * 864e5).toISOString().slice(0, 10);
+  suiteSouhait(s);
+};
+ACTIONS['souhait-faire'] = el => { const s = souhaitDe(el.dataset.id); s.decision = 'suivi'; suiteSouhait(s); };
+ACTIONS['souhait-renoncer'] = el => {
+  const s = souhaitDe(el.dataset.id), conforme = s.avis.verdict !== 'favorable';
+  s.decision = conforme ? 'conforme' : 'renonce';
+  suiteSouhait(s, conforme ? 'Noté : vous n’investissez pas, comme Fox Order vous le conseillait.' : 'Noté : vous n’investissez pas. Votre conseiller en est informé.');
+};
+ACTIONS['souhait-revenir'] = el => { const s = souhaitDe(el.dataset.id); s.decision = null; s.ordre = false; suiteSouhait(s); };
+ACTIONS['souhait-passe'] = el => { const s = souhaitDe(el.dataset.id); s.ordre = true; suiteSouhait(s, 'Noté. Antoine constatera l’opération sur votre prochain relevé.'); };
+/* Investir contre le conseil : une mise en garde, que le client confirme par écrit avant que sa décision soit notée. */
+ACTIONS['souhait-contre'] = el => {
+  const s = souhaitDe(el.dataset.id), g = gammeDe(s.support), id = ' data-id="' + s.id + '"';
+  ouvrirFeuille('Investir contre le conseil de Fox Order',
+    '<p style="margin-bottom:12px">Fox Order vous déconseille d’investir ' + eur(s.montant) + ' dans le support « ' + g.nom + ' ». Si vous le faites, c’est votre décision : elle sera notée dans votre dossier, avec les raisons de Fox Order.</p>' +
+    '<ul class="puces-c alerte" style="margin-bottom:14px">' + s.avis.raisons.filter(r => !r.ok).map(r => '<li><span>' + r.texte + '</span></li>').join('') + '</ul>' +
+    '<label class="coche-l"><input type="checkbox" id="sh-lu"><span>J’ai lu les raisons de Fox Order et je décide d’investir quand même.</span></label>' +
+    '<p class="petit" id="sh-erreur" role="alert" style="color:var(--terracotta-texte);margin-top:8px"></p>',
+    '<button class="btn contour souple" data-a="voir-souhait"' + id + '>Revenir au rapport</button><button class="btn plein souple" data-a="souhait-contre-confirme"' + id + '>Confirmer ma décision</button>');
+};
+ACTIONS['souhait-contre-confirme'] = el => {
+  const s = souhaitDe(el.dataset.id);
+  if (!$('#sh-lu').checked) { $('#sh-erreur').textContent = 'Confirmez d’abord, par la case ci-dessus, que vous avez lu les raisons de Fox Order.'; return; }
+  s.decision = 'contre'; suiteSouhait(s);
+};
 
 /* ==========================================================================
    Documents, Vos conseils, Mon compte, Antoine, dépôt de documents
