@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#F4EFE6">
+<meta name="version" content="0.1.4">
 <title>Fox Order</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icones/icone-192.png">
@@ -1098,6 +1099,30 @@ main{padding-bottom:calc(124px + env(safe-area-inset-bottom))}
 .feuille .coche-l{display:flex;gap:10px;align-items:flex-start;min-height:44px;font-size:15px;line-height:1.4}
 .feuille .coche-l input{width:22px;height:22px;flex:none;margin-top:1px}
 
+/* Annonces : une pastille posée au-dessus de la barre basse, à portée du pouce. Elle ne déplace rien dans la page et passe
+   sous les fenêtres ; un message bref qui arrive en même temps se place au-dessus d'elle. */
+#annonces{position:fixed;z-index:40;left:50%;bottom:calc(104px + env(safe-area-inset-bottom));transform:translateX(-50%);display:grid;gap:8px;justify-items:center;width:max-content;max-width:min(calc(100vw - 24px),480px);pointer-events:none}
+.annonce{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:100%;min-height:56px;padding:6px 6px 6px 16px;border-radius:28px;background:var(--encre);color:var(--sable);font-size:15px;font-weight:600;line-height:1.3;box-shadow:var(--ombre-haute);animation:annonce .32s cubic-bezier(.16,1,.3,1)}
+.annonce > svg{flex:none;color:var(--sauge)}
+.annonce > span{min-width:0;text-wrap:balance}
+.annonce .btn{flex:none;background:var(--sable);color:var(--encre)}
+.annonce .btn:hover{background:var(--surface)}
+.annonce .btn:disabled{opacity:.6;cursor:default}
+.annonce :focus-visible{outline-color:var(--sable)}
+#annonces:not(:empty) ~ .message{bottom:calc(172px + env(safe-area-inset-bottom))}
+/* Une annonce qui demande de choisir : le texte, puis ses deux commandes dessous */
+.annonce.choix{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;padding:12px 10px 8px 16px;border-radius:24px}
+.annonce-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-left:-10px}
+.annonce .btn.texte{background:none;color:var(--sable);padding:0 12px;min-height:44px;font-size:15px;text-decoration-color:rgba(251,247,239,.55)}
+.annonce .btn.texte:hover{background:none;text-decoration-color:var(--sable)}
+@keyframes annonce{from{opacity:0;transform:translateY(10px)}}
+@media (max-width:359px){.annonce:not(.choix) > svg{display:none}}
+@media (min-width:1020px){
+  #annonces{left:calc(50% + var(--rail-l)/2);bottom:32px}
+  #annonces:not(:empty) ~ .message{bottom:100px}
+}
+@media (prefers-reduced-motion:reduce){.annonce{animation:none}}
+
 </style>
 </head>
 <body>
@@ -1108,13 +1133,15 @@ main{padding-bottom:calc(124px + env(safe-area-inset-bottom))}
 <nav class="barre-bas" aria-label="Navigation"></nav>
 <div id="antoine"></div>
 <div id="feuilles"></div>
+<div id="annonces" aria-live="polite"></div>
 <div class="message" id="message" role="status" aria-live="polite"></div>
 <div class="i-pop" id="i-pop" role="status"></div>
 <script>
 'use strict';
 /* ==========================================================================
    Fox Order — Espace client, prototype « nouvelle ergonomie » (v3, 18/11/2026 : charte « Bohème », vues du patrimoine en menus déroulants)
-   FAÇADE SEULE : aucune donnée réelle, aucun appel réseau, aucun enregistrement.
+   FAÇADE SEULE : aucune donnée réelle, aucun enregistrement. Un seul appel réseau : la page relit le numéro de version
+   du site d'où elle vient, pour annoncer une nouvelle version (09-annonces.js).
    Toutes les données viennent de l'objet FICTIF (famille Lambert, inventée).
    Pour brancher le serveur plus tard : remplacer les lectures de FICTIF par des
    appels aux routes du serveur ; les vues n'ont pas à changer.
@@ -1174,7 +1201,8 @@ const TRACES = {
   echange: '<path d="M4 8h15"/><path d="m15 4 4 4-4 4"/><path d="M20 16H5"/><path d="m9 12-4 4 4 4"/>',
   fleche: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
   groupe: '<rect x="3.500" y="4" width="17" height="6" rx="1.500"/><rect x="3.500" y="14" width="17" height="6" rx="1.500"/>',
-  personne: '<circle cx="12" cy="8" r="4"/><path d="M4.500 20.500a7.500 7.500 0 0 1 15 0"/>'
+  personne: '<circle cx="12" cy="8" r="4"/><path d="M4.500 20.500a7.500 7.500 0 0 1 15 0"/>',
+  telephone: '<rect x="7" y="2.500" width="10" height="19" rx="2.500"/><path d="M10.800 18.200h2.400"/>'
 };
 function I(nom, t) {
   t = t || 20;
@@ -3599,8 +3627,15 @@ function vueCompte() {
       ['Une personne valide chaque recommandation', 'Antoine prépare et explique ; votre conseiller agréé relit, valide et signe.'],
       ['Vos données restent en Europe', 'Elles ne servent qu’à votre suivi et ne sont jamais revendues.']
     ].map(x => '<li class="ligne"><span class="puce foret">' + I('check', 18) + '</span><span><span class="t">' + x[0] + '</span><br><span class="s">' + x[1] + '</span></span></li>').join('') + '</ul>') +
+    bloc('Votre session', '<div class="rang-actions"><button class="btn contour" data-a="deconnexion">Se déconnecter</button></div>') +
     bloc('Cette démonstration', '<p class="petit" style="max-width:46em">Vous utilisez un prototype : la famille Lambert et tous ses chiffres sont inventés, et rien de ce que vous faites n’est enregistré.</p><div class="rang-actions" style="margin-top:12px"><button class="btn contour" data-a="recommencer">Recommencer la démonstration</button><button class="btn texte" data-a="supprimer-compte">Supprimer mon compte</button></div>');
 }
+// La connexion vit dans le relais : la page lui demande de fermer la session, puis revient à la porte d'entrée.
+ACTIONS.deconnexion = () => {
+  fetch('/api/deconnexion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', credentials: 'same-origin' })
+    .then(r => { if (!r.ok) throw 0; location.replace('/'); })
+    .catch(() => dire('Cette démonstration s’ouvre sans connexion : il n’y a pas de session à fermer.'));
+};
 ACTIONS.bascule = el => {
   if (el.dataset.id === 'discret') { ACTIONS.discret(); return; }
   etat[el.dataset.id] = !etat[el.dataset.id];
@@ -3753,6 +3788,89 @@ const ETAT_INITIAL = JSON.stringify(etat);
 const FICTIF_INITIAL = JSON.stringify(FICTIF);
 appliquerAdresse();
 rendre();
+
+/* ==========================================================================
+   Annonces : ce que la page signale d'elle-même, dans une pastille posée au-dessus de la barre basse.
+   Elle ne déplace rien dans la page et passe sous les fenêtres.
+   ========================================================================== */
+const annonces = { version: null, application: false };
+const LIEN_APPLICATION = 'intent://app.foxorder.fr/#Intent;scheme=https;package=fr.foxorder.app;end';
+function rendreAnnonces() {
+  const a = [];
+  /* Le raccourci du site posé sur l'écran d'accueil s'ouvre sans navigateur autour : « ici » plutôt que « dans le navigateur ». */
+  const seul = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  if (annonces.application) a.push('<div class="annonce choix">' + I('telephone', 20) + '<span>Vous avez l’application Fox Order</span>' +
+    '<div class="annonce-actions"><a class="btn" href="' + LIEN_APPLICATION + '">Ouvrir l’application</a>' +
+    '<button type="button" class="btn texte" data-a="continuer-ici">' + (seul ? 'Continuer ici' : 'Continuer dans le navigateur') + '</button></div></div>');
+  if (annonces.version) a.push('<div class="annonce">' + I('maj', 20) + '<span>Nouvelle version disponible</span>' +
+    '<button type="button" class="btn" data-a="recharger">Recharger</button></div>');
+  $('#annonces').innerHTML = typo(a.join(''));
+}
+
+/* ---------- Nouvelle version du site ----------
+   La page porte le numéro de version avec lequel elle a été fabriquée ; le site publie le sien dans « version.txt ».
+   Quand ils diffèrent, une release est passée depuis l'ouverture : il suffit de recharger. La page relit ce numéro à
+   l'ouverture, quand on revient à elle, puis toutes les dix minutes. Ouverte depuis un fichier, elle ne demande rien. */
+const VERSION_PAGE = (($('meta[name="version"]') || {}).content || '').trim();
+const FORMAT_VERSION = /^\d+\.\d+\.\d+$/;
+const CLE_RECHARGE = 'fo-recharge';
+let derniereLecture = 0;
+function lireVersionEnLigne() {
+  derniereLecture = Date.now();
+  return fetch('version.txt?' + derniereLecture, { cache: 'no-store' })
+    .then(r => (r.ok ? r.text() : ''), () => '')
+    .then(t => { t = t.trim(); return FORMAT_VERSION.test(t) ? t : null; });
+}
+function verifierVersion() {
+  lireVersionEnLigne().then(v => {
+    let annoncer = v && v !== VERSION_PAGE ? v : null;
+    if (annoncer) {
+      /* On vient de recharger pour cette version et la page reçue est encore l'ancienne : le site n'a pas fini de se
+         mettre à jour. Inutile de le redire tout de suite ; la lecture suivante le reproposera. */
+      let essai = '';
+      try { essai = sessionStorage.getItem(CLE_RECHARGE) || ''; } catch (e) { /* stockage indisponible : sans importance */ }
+      const p = essai.split('|');
+      if (p[0] === annoncer && Date.now() - Number(p[1]) < 120000) annoncer = null;
+    }
+    if (annonces.version !== annoncer) { annonces.version = annoncer; rendreAnnonces(); }
+  });
+}
+if (FORMAT_VERSION.test(VERSION_PAGE) && /^https?:$/.test(location.protocol)) {
+  setTimeout(verifierVersion, 1200);
+  setInterval(() => { if (document.visibilityState === 'visible') verifierVersion(); }, 600000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - derniereLecture > 30000) verifierVersion();
+  });
+}
+/* « Recharger » : la page est redemandée au serveur sans passer par la copie gardée par le navigateur, puis rechargée. */
+ACTIONS.recharger = el => {
+  el.disabled = true;
+  try { sessionStorage.setItem(CLE_RECHARGE, annonces.version + '|' + Date.now()); } catch (e) { /* sans importance */ }
+  const suite = () => location.reload();
+  fetch(location.pathname + location.search, { cache: 'reload' }).then(suite, suite);
+};
+
+/* ---------- L'application Android est déjà installée ----------
+   Sur Android, Chrome sait dire à la page que l'application Fox Order est installée : la déclaration du site nomme
+   l'application (« related_applications »), et l'application nomme le site. La page propose alors de l'ouvrir : une seule
+   icône suffit. « Continuer dans le navigateur » vaut pour toute la visite. Dans l'application elle-même, sur iPhone et sur
+   ordinateur, il n'y a rien à proposer. */
+const APPLICATION_ANDROID = 'fr.foxorder.app';
+const CLE_ICI = 'fo-continuer-ici';
+function chercherApplication() {
+  /* Ouverte depuis un fichier, la page n'a pas de déclaration à faire lire au navigateur : elle ne demande rien. */
+  if (!/^https?:$/.test(location.protocol) || /\bFoxOrderApp\//.test(navigator.userAgent) || typeof navigator.getInstalledRelatedApps !== 'function') return;
+  try { if (sessionStorage.getItem(CLE_ICI) === '1') return; } catch (e) { /* stockage indisponible : sans importance */ }
+  navigator.getInstalledRelatedApps().then(liste => {
+    if ((liste || []).some(x => x.platform === 'play' && x.id === APPLICATION_ANDROID)) { annonces.application = true; rendreAnnonces(); }
+  }, () => { /* le navigateur ne répond pas : rien à proposer */ });
+}
+ACTIONS['continuer-ici'] = () => {
+  annonces.application = false;
+  try { sessionStorage.setItem(CLE_ICI, '1'); } catch (e) { /* sans importance */ }
+  rendreAnnonces();
+};
+chercherApplication();
 
 </script>
 </body>
